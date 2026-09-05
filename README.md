@@ -1,2 +1,2 @@
-# wii-donut-c-
+# wii-donut-dotnet
 wii homebrew donut recreated in c#.
