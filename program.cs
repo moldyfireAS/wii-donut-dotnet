@@ -119,4 +119,10 @@ class Program
                 B += speedB;
             }
 
-            if
+            if (Console.WindowWidth != width || Console.WindowHeight != height)
+{
+    width = Console.WindowWidth;
+    height = Console.WindowHeight;
+    Console.Clear();
+}
+
