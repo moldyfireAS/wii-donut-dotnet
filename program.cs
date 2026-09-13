@@ -1,5 +1,11 @@
-
+using System;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Media;
 
 class Program
 {
@@ -35,179 +41,82 @@ class Program
         if (string.IsNullOrWhiteSpace(mp3Path) || !File.Exists(mp3Path))
             return;
 
-        Process.Start(new ProcessStartInfo
+        try
         {
-            FileName = mp3Path,
-            UseShellExecute = true
-        });
+            SoundPlayer player = new SoundPlayer(mp3Path);
+            player.Load();
+            player.PlayLooping();
+        }
+        catch
+        {
+            // ignore audio errors
+        }
     }
 
     static void Main()
     {
+        string mp3Path = ExtractEmbeddedMp3();
+        Thread musicThread = new Thread(() => PlayMp3(mp3Path));
+        musicThread.IsBackground = true;
+        musicThread.Start();
 
-    string mp3Path = ExtractEmbeddedMp3();
-    Thread musicThread = new Thread(() => PlayMp3(mp3Path));
-    musicThread.IsBackground = true;
-    musicThread.Start();
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.CursorVisible = false;
 
-    Console.OutputEncoding = Encoding.UTF8;
-    Console.CursorVisible = false;
+        int width = Console.WindowWidth;
+        int height = Console.WindowHeight;
 
-    int width = Console.WindowWidth;
-    int height = Console.WindowHeight;
+        if (width < 20) width = 80;
+        if (height < 10) height = 22;
 
-    if (width < 20) width = 80;
-    if (height < 10) height = 22;
+        float A = 0;
+        float B = 0;
 
-    float A = 0;
-    float B = 0;
+        float speedA = 0.08f;
+        float speedB = 0.03f;
 
-    float speedA = 0.08f;
-    float speedB = 0.03f;
+        bool paused = false;
 
-    bool paused = false;
+        const string blueColor = "\x1b[38;5;39m";
+        const string purpleColor = "\x1b[38;5;135m";
+        const string resetColor = "\x1b[0m";
 
-    const string blueColor = "\x1b[38;5;39m";
-    const string purpleColor = "\x1b[38;5;135m";
-    const string resetColor = "\x1b[0m";
+        StringBuilder frameBuffer = new StringBuilder();
+        string numLuminanceChars = ".,-~:;=!*#$@";
 
-    StringBuilder frameBuffer = new StringBuilder();
-    string numLuminanceChars = ".,-~:;=!*#$@";
+        Console.WriteLine("Controls: [+] faster | [-] slower | [R] reset | [Space] pause");
 
-    Console.WriteLine("Controls: [+] faster | [-] slower | [R] reset | [Space] pause");
-
-    while (true)
-    {
-        // Handle key input without blocking
-        if (Console.KeyAvailable)
+        while (true)
         {
-            var key = Console.ReadKey(true).Key;
-
-            if (key == ConsoleKey.R)
+            if (Console.KeyAvailable)
             {
-                A = 0;
-                B = 0;
-            }
-            else if (key == ConsoleKey.OemPlus || key == ConsoleKey.Add)
-            {
-                speedA *= 1.2f;
-                speedB *= 1.2f;
-            }
-            else if (key == ConsoleKey.OemMinus || key == ConsoleKey.Subtract)
-            {
-                speedA *= 0.8f;
-                speedB *= 0.8f;
-            }
-            else if (key == ConsoleKey.Spacebar)
-            {
-                paused = !paused;
-            }
-        }
+                var key = Console.ReadKey(true).Key;
 
-        if (!paused)
-        {
-            A += speedA;
-            B += speedB;
-        }
-
-        if (Console.WindowWidth != width || Console.WindowHeight != height)
-        {
-            width = Console.WindowWidth;
-            height = Console.WindowHeight;
-            Console.Clear();
-        }
-
-        char[] outputBuffer = new char[width * height];
-        float[] zBuffer = new float[width * height];
-
-        Array.Fill(outputBuffer, ' ');
-        Array.Fill(zBuffer, 0f);
-
-        float centerX = width / 2f;
-        float centerY = height / 2f;
-        float scaleX = width * 0.375f;
-        float scaleY = height * 0.68f;
-
-        for (float theta = 0; theta < 6.28f; theta += 0.07f)
-        {
-            for (float phi = 0; phi < 6.28f; phi += 0.02f)
-            {
-                float sinTheta = MathF.Sin(theta);
-                float cosTheta = MathF.Cos(theta);
-                float sinPhi = MathF.Sin(phi);
-                float cosPhi = MathF.Cos(phi);
-
-                float sinA = MathF.Sin(A);
-                float cosA = MathF.Cos(A);
-                float sinB = MathF.Sin(B);
-                float cosB = MathF.Cos(B);
-
-                float circleX = cosTheta + 2;
-                float circleY = sinTheta;
-
-                float oneOverZ = 1 / (sinPhi * circleX * sinA + circleY * cosA + 5);
-                float t = sinPhi * circleX * cosA - circleY * sinA;
-
-                int x = (int)(centerX + scaleX * oneOverZ * (cosPhi * circleX * cosB - t * sinB));
-                int y = (int)(centerY + scaleY * oneOverZ * (cosPhi * circleX * sinB + t * cosB));
-
-                int bufferIndex = x + width * y;
-
-                float luminance = 8 * ((circleY * sinA - sinPhi * cosTheta * cosA) * cosB
-                                  - sinPhi * cosTheta * sinA
-                                  - circleY * cosA
-                                  - cosPhi * cosTheta * sinB);
-
-                if (y >= 0 && y < height && x >= 0 && x < width && oneOverZ > zBuffer[bufferIndex])
+                if (key == ConsoleKey.R)
                 {
-                    zBuffer[bufferIndex] = oneOverZ;
-                    int luminanceIndex = (int)luminance;
-                    outputBuffer[bufferIndex] = numLuminanceChars[
-                        luminanceIndex > 0 ? (luminanceIndex < 12 ? luminanceIndex : 11) : 0
-                    ];
+                    A = 0;
+                    B = 0;
+                }
+                else if (key == ConsoleKey.OemPlus || key == ConsoleKey.Add)
+                {
+                    speedA *= 1.2f;
+                    speedB *= 1.2f;
+                }
+                else if (key == ConsoleKey.OemMinus || key == ConsoleKey.Subtract)
+                {
+                    speedA *= 0.8f;
+                    speedB *= 0.8f;
+                }
+                else if (key == ConsoleKey.Spacebar)
+                {
+                    paused = !paused;
                 }
             }
-        }
 
-        frameBuffer.Clear();
-        string activeColor = "";
-
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
+            if (!paused)
             {
-                if (y == height - 1 && x == width - 1) break;
-
-                int idx = x + width * y;
-                char ch = outputBuffer[idx];
-
-                if (ch == ' ')
-                {
-                    frameBuffer.Append(' ');
-                }
-                else
-                {
-                    string targetColor = (x % 2 == 0) ? blueColor : purpleColor;
-
-                    if (activeColor != targetColor)
-                    {
-                        frameBuffer.Append(targetColor);
-                        activeColor = targetColor;
-                    }
-                    frameBuffer.Append(ch);
-                }
+                A += speedA;
+                B += speedB;
             }
-            if (y < height - 1)
-            {
-                frameBuffer.Append('\n');
-            }
-        }
-        frameBuffer.Append(resetColor);
 
-        Console.SetCursorPosition(0, 0);
-        Console.Write(frameBuffer.ToString());
-
-        Thread.Sleep(30);
-    }
-}
-
+            if
