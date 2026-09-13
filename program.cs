@@ -1,3 +1,6 @@
+
+using System.Linq;
+
 class Program
 {
     static string ExtractEmbeddedMp3()
