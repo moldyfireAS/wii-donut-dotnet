@@ -1,10 +1,3 @@
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Reflection;
-using System.Text;
-using System.Threading;
-//heheh
 class Program
 {
     static string ExtractEmbeddedMp3()
@@ -46,8 +39,9 @@ class Program
         });
     }
 
-static void Main()
-{
+    static void Main()
+    {
+
     string mp3Path = ExtractEmbeddedMp3();
     Thread musicThread = new Thread(() => PlayMp3(mp3Path));
     musicThread.IsBackground = true;
